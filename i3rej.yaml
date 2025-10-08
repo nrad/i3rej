@@ -1,0 +1,76 @@
+
+docs: |
+  Quickstart configuration for TFXKit experiments.
+  This is example configuation based on the breast cancer dataset of sklearn.
+  It includes a simple model architecture, basic data settings, and a short training duration.
+  You can modify this configuration to suit your specific needs.
+
+defaults:
+  - default_config  
+
+data:
+  file_reader: tfxkit.common.base_utils.read_hdfs
+  labels: ["CscdBDT"]
+
+  train_files: /Users/nrad/Work/data/hdf/Cscd_v0.0.12/20904/test_train_nocombineskimmed/train_RUS_to1to5.hdf5
+  test_files: /Users/nrad/Work/data/hdf/Cscd_v0.0.12/20904/test_train_nocombineskimmed/test_small.hdf5
+  weight_column_train: sample_weight_balanced
+  xy_maker: custom_model.xy_maker_muon_embedding
+
+model:
+  function: custom_model.define_muemb_model
+  overwrite: true
+  reload_model: true
+
+  parameters:
+    event_branch_layers: [64]
+    muon_branch_layers: [64]
+    combination_layers: [64]
+    muon_embedding_dim: 16
+    hidden_activation: relu
+    dropout: 0.3
+    dropout_muon: null
+    dropout_event: null
+    kernel_regularizer: 1e-4
+    aggregation_method: simple
+    batch_size: null
+
+training:
+  epochs: 10
+  batch_size: 32000
+  validation_split: 0.2
+
+plotter:
+  plots_path: tfxkit_results/plots
+  weight_column: sel_flux_weights
+  weight_column_train: 
+    - sel_flux_weights
+    - sample_weight
+    - 0.0225
+tuning_data:
+tuner:
+  functions:
+    generic_tuner:
+      parameters:
+        model.parameters.event_branch_layers: [ "64", "512", "[64, 64]", "[128, 128]", "[512, 512]" ]
+        model.parameters.muon_branch_layers: [ "64", "512", "[64, 64]", "[128, 128]", "[512, 512]" ]
+        model.parameters.combination_layers: [ "64", "512", "[64, 64]", "[128, 128]", "[512, 512]" ]
+        model.parameters.muon_embedding_dim: [ "16", "32", "128" ]
+        # optimizer.function: ["keras.optimizers.Adam", "keras.optimizers.AdamW"]
+        # model.parameters.event_branch_layers: [ "64", "128", "256", "512", "[64, 64]", "[128, 128]", "[256, 256]", "[512, 512]" ]
+        # model.parameters.muon_branch_layers: [ "64", "128", "256", "512", "[64, 64]", "[128, 128]", "[256, 256]", "[512, 512]" ]
+        # model.parameters.combination_layers: [ "64", "128", "256", "512", "[64, 64]", "[128, 128]", "[256, 256]", "[512, 512]" ]
+        # model.parameters.muon_embedding_dim: [ "16", "32", "64", "128" ]
+        # optimizer.function: ["keras.optimizers.Adam", "keras.optimizers.AdamW"]
+        optimizer.function: ["keras.optimizers.AdamW"]
+
+  tuner:
+    function: keras_tuner.BayesianOptimization
+    parameters:
+        alpha: 0.001
+        beta: 2.6
+        directory: tfxkit_results/HPTunning/
+        max_trials: 10
+  search:
+    epochs: 5
+    
