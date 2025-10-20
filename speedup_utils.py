@@ -19,7 +19,6 @@ def make_labels(label_name):
     labels = {
         "n_photons_passed": r"$N_{%s}^{\gamma}$" % (label_name),
         "n_photons_accepted": r"$N_{NN}^{\gamma}$",
-        "n_photons_accepted": r"$N_{NN}^{\gamma}$",
         "n_events_eff": r"$N^{NN}_{eff} (pred*gen weights)$",
         "n_events_eff_pred": r"$N^{%s}_{eff}$" % (label_name),
         "n_events_eff_pred_sel": r"$N^{%s}_{eff}$" % (label_name),
@@ -33,10 +32,7 @@ def make_labels(label_name):
         "n_eff_sampled_expected": r"$<N^{%s}_{eff,raw}>$" % (label_name),
         "n_eff_sampled_gen_expected": r"$<N^{%s}_{eff}>$" % (label_name),
         "n_photons_sampled_expected": r"$<N_{\gamma}>$",
-        # 'n_photons_sampled_gen_expected' : r'$<N^{%s}_{\gamma}>$',
-        #'min_pred':'Rejection Probability Threshold',
         "min_pred": "Minimum Acceptance Probability",
-        #'fake_pred':'Utopian',
         "fake_pred": "Ideal",
         "pred": "model",
         #'uniform_pred':'Dystopian',
@@ -48,29 +44,14 @@ def make_labels(label_name):
 # labels = make_labels("L3")
 
 infos = {
+
     "fake_pred": dict(color="green", label="Optimistic", ls=":", lw=2),
-    "uniform_pred": dict(color="red", label="Pessimistic", ls=":", lw=2),
+    "uniform_pred": dict(color="red", label="Uniform Sampling", ls=":", lw=2),
     "pseudo_pred_gauss": dict(color="green", label="Optimistic Sampling", ls=":", lw=2),
     "pseudo_pred_2gauss": dict(color="green", label="2Gauss", ls="--", lw=2),
     "pseudo_pred_uniform": dict(color="red", label="Uniform Sampling", ls=":", lw=2),
-    "gen2filt_hypertuned": dict(color="blue", label="Model"),
-    "gen2L3_50runs_v0": dict(color="blue", label="Level3 Model"),
-    "gen2L3_ngammauncorr_gen_weights_balanced_bayesian2_50epochs": dict(
-        label="Energyless (HP 50 epochs)"
-    ),
-    "gen2L3_ngammauncorr_gen_weights_balanced": dict(label="Energyless"),
-    "gen2L3_allfeatures_gen_weights_balanced_bayesian2_20epochs": dict(
-        label="All Features (HP 20 epochs)"
-    ),
-    # 'gen2L3_merged_combinedall_allfeatures': dict(color='blue', label="Model"),
-    # 'gen2L3_merged_combinedall_allfeatures_hyperband1': dict(color='C3', label="Model2"),
-    # 'gen2L3_merged_combinedall_allfeatures_hyperband4': dict(color='purple', label="Model3"),
-    "gen2L3_merged_balanced_gen_weighted_combinedall_allfeatures_bayesian0_100epochs": dict(
-        color="blue", label="B0_100epochs"
-    ),
-    "gen2L3_merged_balanced_gen_weighted_combinedall_allfeatures_hyperband2": dict(
-        color="orange", label="HB2"
-    ),
+    "pred": dict(color="blue", label="Model", ls="", lw=2),
+
 }
 
 
@@ -241,7 +222,7 @@ def get_pred_summary(
     pred="pred",
     passed="passed",
     col_n_photons="n_photons",
-    col_gen_weights="weights",
+    col_flux_weights="weights",
     col_sel_weights="selection_weights",
     min_pred_range=np.linspace(0, 1, 100),
     full=False,
@@ -253,7 +234,7 @@ def get_pred_summary(
     # pred = df_[pred_name]
     pred = df[pred] if isinstance(pred, str) else pred
     passed = df[passed] if isinstance(passed, str) else passed
-    w_gen = df[col_gen_weights] if isinstance(col_gen_weights, str) else col_gen_weights
+    w_gen = df[col_flux_weights] if isinstance(col_flux_weights, str) else col_flux_weights
     w_sel = df[col_sel_weights] if isinstance(col_sel_weights, str) else col_sel_weights
     n_photons = df[col_n_photons] if isinstance(col_n_photons, str) else col_n_photons
 
@@ -320,18 +301,18 @@ def calc_expected_livetime(w, p=None):
 
 
 def get_pred_speed(
-    pred, passed=None, n_photons=None, gen_weights=None, sel_weights=None, full=False
+    pred, passed=None, n_photons=None, flux_weights=None, sel_weights=None, full=False
 ):
     pred_passed = pred[passed]
     w_pred, mask_sample = get_weight_from_pred(pred)
 
     n_eff_passed = calc_expected_n_eff(
-        w_pred[passed] * gen_weights[passed] * sel_weights[passed], pred[passed]
+        w_pred[passed] * flux_weights[passed] * sel_weights[passed], pred[passed]
     )
     n_eff_noflux_passed = calc_expected_n_eff(
         w_pred[passed] * sel_weights[passed], pred[passed]
     )
-    # n_eff_passed = calc_n_eff( (w_pred * gen_weights * sel_weights)[passed & mask_sample] )
+    # n_eff_passed = calc_n_eff( (w_pred * flux_weights * sel_weights)[passed & mask_sample] )
     n_photons_simulated = (n_photons * sel_weights * pred).sum()
     speed = n_eff_passed / n_photons_simulated
     results = dict(
@@ -343,15 +324,15 @@ def get_pred_speed(
 
     if full:
         n_eff_passed_nom = (
-            pred[passed] * w_pred[passed] * gen_weights[passed] * sel_weights[passed]
+            pred[passed] * w_pred[passed] * flux_weights[passed] * sel_weights[passed]
         ).sum() ** 2
         n_eff_passed_denom = (
             pred[passed]
-            * (w_pred[passed] * gen_weights[passed] * sel_weights[passed]) ** 2
+            * (w_pred[passed] * flux_weights[passed] * sel_weights[passed]) ** 2
         ).sum()
 
         livetime_passed_nom = (
-            pred[passed] * w_pred[passed] * gen_weights[passed] * sel_weights[passed]
+            pred[passed] * w_pred[passed] * flux_weights[passed] * sel_weights[passed]
         ).sum()
         livetime_passed_denom = n_eff_passed_denom
         results.update(
@@ -363,21 +344,21 @@ def get_pred_speed(
             n_photons_rejected=(n_photons * sel_weights * (1 - pred)).sum(),
             n_photons_passed=(n_photons * sel_weights * pred)[passed].sum(),
             n_photons_simulated_flux=(
-                n_photons * sel_weights * pred * gen_weights
+                n_photons * sel_weights * pred * flux_weights
             ).sum(),
-            n_photons_passed_flux=(n_photons * sel_weights * pred * gen_weights)[
+            n_photons_passed_flux=(n_photons * sel_weights * pred * flux_weights)[
                 passed
             ].sum(),
         )
     return results
 
 
-def get_pred_speed_up(
+def get_pred_speedup(
     df,
     pred="pred",
     passed="passed",
     col_n_photons="n_photons",
-    col_gen_weights="weights",
+    col_flux_weights="weights",
     col_sel_weights="selection_weights",
     min_pred_range=np.linspace(0, 1, 100),
     full=False,
@@ -391,7 +372,7 @@ def get_pred_speed_up(
     pred = df[pred] if isinstance(pred, str) else pred
     passed = df[passed].astype(bool) if isinstance(passed, str) else passed
     # print(passed)
-    w_gen = df[col_gen_weights] if isinstance(col_gen_weights, str) else col_gen_weights
+    w_gen = df[col_flux_weights] if isinstance(col_flux_weights, str) else col_flux_weights
     w_sel = df[col_sel_weights] if isinstance(col_sel_weights, str) else col_sel_weights
     n_photons = df[col_n_photons] if isinstance(col_n_photons, str) else col_n_photons
 
@@ -399,7 +380,7 @@ def get_pred_speed_up(
         np.ones_like(pred),
         passed=passed,
         n_photons=n_photons,
-        gen_weights=w_gen,
+        flux_weights=w_gen,
         sel_weights=w_sel,
     )
 
@@ -420,7 +401,7 @@ def get_pred_speed_up(
             step_pred,
             passed=passed,
             n_photons=n_photons,
-            gen_weights=w_gen,
+            flux_weights=w_gen,
             sel_weights=w_sel,
             full=full,
         )
@@ -457,10 +438,10 @@ def get_max_speedup(model, df, features, truth, batch_size, key="speed_normed"):
     y_test = df[truth]
     df["pred"] = model.predict(X_test, batch_size=batch_size)
     df["passed"] = y_test
-    speedup_normed = get_pred_speed_up(
+    speedup_normed = get_pred_speedup(
         df,
         pred="pred",
-        col_gen_weights="flux_weights",
+        col_flux_weights="flux_weights",
         col_sel_weights="selection_weights",
     )[key]
     return speedup_normed.max()
@@ -671,97 +652,6 @@ def model_modifier_logistic_activation(model, **kwargs):
     return custom_act_model
 
 
-###
-### Speed up loss
-###
-### @tf.keras.utils.register_keras_serializable(package="I3K", name="SpeedUpLoss")
-
-
-@keras.saving.register_keras_serializable(package="I3K", name="tf_loss_speed_up")
-def tf_loss_speed_up(y, y_pred):
-
-    y_true = y[:, 0]
-    n_photons = y[:, 1]
-    weights = y[:, 2]
-
-    min_pred = 0.2
-
-    step_pred = y_pred
-    w_pred = 1.0 / (step_pred + 1e-9)
-
-    w_passed = weights[y_true == 1] * w_pred[y_true == 1]
-    step_pred_passed = step_pred[y_true == 1]
-    n_photons_sampled_expected = tf.reduce_sum(n_photons * step_pred * weights)
-
-    n_eff_sampled_expected = tf_calc_expected_n_eff(w_passed, p=step_pred_passed)
-    # tf.print('wpassed', w_passed, step_pred_passed, y_true, y_pred)
-    # tf.print('neff', n_eff_sampled_expected, n_photons_sampled_expected)
-
-    n_photons_nominal = tf.reduce_sum(n_photons * weights)
-    n_eff_nominal = tf_calc_expected_n_eff(weights[y_true == 1])
-
-    speed_sampled = n_eff_sampled_expected / n_photons_sampled_expected
-    speed_nominal = n_eff_nominal / n_photons_nominal
-    # print('DEBUG', n_eff_sampled_expected, n_photons_sampled_expected, n_eff_nominal, n_photons_nominal)
-
-    return 1 - speed_sampled / speed_nominal
-    # return speed_nominal/speed_sampled
-
-
-def xy_speed_up(mf):
-    """
-    Prepare the data for the speed up loss...
-    this is needed because the columns have to be combined in a single tensor to be snuck into the loss function
-    """
-    df = mf.df_train
-    y_truth = mf.y_train
-    n_photons = df["n_photons"]
-    weights = df["sel_gen_weights"]
-
-    y = np.concatenate(
-        [
-            y_truth.to_numpy().reshape(-1, 1),
-            n_photons.to_numpy().reshape(-1, 1),
-            weights.to_numpy().reshape(-1, 1),
-        ],
-        axis=1,
-    )
-    return dict(x=mf.df_train[mf.features], y=y)
-
-
-def tf_calc_expected_n_eff(w, p=None):
-    if p is None:
-        return tf_effective_number(w)
-    else:
-        nom = tf.reduce_sum(p * w) ** 2
-        denom = tf.reduce_sum(p * (w**2))
-        return nom / denom
-
-
-def tf_effective_number(y, eps=1e-9):
-    # Assuming y_pred are the classification scores p_i
-    # Calculate weights w_i = 1/p_i, adding a small epsilon to avoid division by zero
-    weights = 1 / (y + eps)
-
-    # Calculate the sum of weights and the sum of squared weights
-    sum_weights = tf.reduce_sum(weights)
-    sum_sq_weights = tf.reduce_sum(tf.square(weights))
-
-    # Calculate N_eff
-    N_eff = (sum_weights**2) / sum_sq_weights
-
-    return N_eff
-
-
-##
-## Dictionaries for the custom loss and model modifiers
-##
-
-model_modifiers_dict = {"logistic_activation": model_modifier_logistic_activation}
-custom_loss_dict = {
-    "speed_up": {"loss": tf_loss_speed_up, "xy": xy_speed_up, "metrics": []}
-}
-
 
 ###
 ### Functions for plotting
@@ -874,3 +764,53 @@ def make_tri_plot(
         utils.savefig(fig, save_path)
     fig.tight_layout()
     return fig, axs
+
+def plot_speedup(plotter, 
+                #  label='CscdBDT',
+                 pred='pred',
+                 truth_label='CscdBDT',
+                 n_photons='n_photons',
+                 flux_weights='flux_weights',
+                 selection_weights='selection_weights',
+                 plot_name="speedup",
+                 nom='n_eff_passed',
+                 denom='n_photons_simulated',
+                 ylim=(0,2.2),
+                 selection_dict={"100TeV":"shower_mu1_energy>100_000", "10TeV":"shower_mu1_energy>10_000"},
+                 model_name=None,
+                 ):
+
+    df = plotter.data.df_test
+    sdfs = {}
+    model_name = model_name if model_name else plotter.config.info.model_name
+    selection_dict.update({model_name:None})
+    if selection_dict:
+        for label, selection in selection_dict.items():
+            if selection is not None:
+                df_ = df.query(selection)
+            else:
+                df_ = df
+            sdfs[label] = get_pred_speedup(df_, 
+                                           pred=pred, 
+                                           passed=truth_label, 
+                                           col_n_photons=n_photons, 
+                                           col_flux_weights=flux_weights, 
+                                           col_sel_weights=selection_weights)
+    add_uniform_preds(df, truth_label=truth_label)
+
+    pseudo_preds = ['uniform_pred',]
+    for pred in pseudo_preds:
+        sdfs[pred] = get_pred_speedup(df, 
+                                      pred=pred, 
+                                      passed=truth_label, 
+                                      col_n_photons=n_photons, 
+                                      col_flux_weights=flux_weights, 
+                                      col_sel_weights=selection_weights)
+    tri_plot = make_tri_plot(nom, 
+                                denom, 
+                                x="min_pred", 
+                                sdfs=sdfs)
+    tri_plot[-1][-1].set_ylim(*ylim)
+    plotter.save_fig(tri_plot[0],  f"{plot_name}")
+    return tri_plot, sdfs
+  

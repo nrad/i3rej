@@ -204,6 +204,8 @@ def build_combined_model(
     )
     print(f"{muon_branch_kwargs = }")
     # print(f"1 {type(layers_list) = } {layers_list = } ")
+    # from tfxkit.common.tf_utils import parse_layers_list
+    layers_list = tf_utils.parse_layers_list(layers_list)
     layers_list = layers_list if isinstance(layers_list, list) else [layers_list]
     layers_list = [int(layer) for layer in layers_list]
     # print(f"2 {type(layers_list) = } {layers_list = } ")
@@ -492,6 +494,7 @@ class SimpleAggregation(keras.layers.Layer):
         return tf.concat([mean_agg, max_agg, min_agg], axis=-1)
 
 
+@keras.saving.register_keras_serializable()
 class SumAggregation(keras.layers.Layer):
     # def __init__(self, embedding_dim, **kwargs):
     #     super().__init__(**kwargs)
@@ -503,6 +506,7 @@ class SumAggregation(keras.layers.Layer):
         return tf.concat([sum_agg], axis=-1)
 
 
+@keras.saving.register_keras_serializable()
 class SimpleAggregation3(keras.layers.Layer):
     # def __init__(self, embedding_dim, **kwargs):
     #     super().__init__(**kwargs)
@@ -518,32 +522,6 @@ class SimpleAggregation3(keras.layers.Layer):
 
 
 class SimpleAggregation2(keras.layers.Layer):
-    # def __init__(self, embedding_dim, **kwargs):
-    #     super().__init__(**kwargs)
-    # def call(self, inputs):
-    #     # Fixed aggregations
-    #     clean_inputs = tf.boolean_mask(inputs, tf.math.is_finite(inputs))
-    #     mean_agg = tf.reduce_mean(clean_inputs, axis=1)
-    #     max_agg = tf.reduce_max(clean_inputs, axis=1)
-    #     min_agg = tf.reduce_min(clean_inputs, axis=1)
-    #     return tf.concat([mean_agg, max_agg, min_agg], axis=-1)
-    # def call(self, inputs):
-    #     # Replace NaNs with 0 for mean computation
-    #     is_finite = tf.math.is_finite(inputs) & (inputs != 0)
-    #     masked_inputs = tf.where(is_finite, inputs, tf.zeros_like(inputs))
-
-    #     # Avoid division by zero in mean calculation
-    #     valid_counts = tf.reduce_sum(tf.cast(is_finite, tf.float32), axis=1, keepdims=True)
-    #     mean_agg = tf.reduce_sum(masked_inputs, axis=1) / tf.maximum(valid_counts, 1.0)
-
-    #     # Replace NaNs with -inf/inf for max/min calculations (so they are ignored)
-    #     masked_max = tf.where(is_finite, inputs, tf.fill(tf.shape(inputs), -tf.float32.max))
-    #     masked_min = tf.where(is_finite, inputs, tf.fill(tf.shape(inputs), tf.float32.max))
-
-    #     max_agg = tf.reduce_max(masked_max, axis=1)
-    #     min_agg = tf.reduce_min(masked_min, axis=1)
-
-    #     return tf.concat([mean_agg, max_agg, min_agg], axis=-1)
     def call(self, inputs):
         # mean_agg = tf.reduce_mean(tf.where(tf.math.is_finite(inputs), inputs, 0), axis=1) #valid_counts
         is_valid = tf.math.is_finite(inputs) & (inputs != 0)
@@ -551,8 +529,6 @@ class SimpleAggregation2(keras.layers.Layer):
 
         masked_inputs = tf.where(is_valid, inputs, tf.zeros_like(inputs))
         mean_agg = tf.reduce_sum(masked_inputs, axis=1) / valid_counts
-        # max_agg = tf.reduce_max(tf.where(tf.math.is_finite(inputs), inputs, -tf.float32.max), axis=1)
-        # min_agg = tf.reduce_min(tf.where(tf.math.is_finite(inputs), inputs, tf.float32.max), axis=1)
         max_agg = tf.reduce_max(tf.where(is_valid, inputs, -tf.float32.max), axis=1)
         min_agg = tf.reduce_min(tf.where(is_valid, inputs, tf.float32.max), axis=1)
         return tf.concat([mean_agg, max_agg, min_agg], axis=-1)
