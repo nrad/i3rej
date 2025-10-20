@@ -646,8 +646,34 @@ class LogisticActivationLayer(tf.keras.layers.Layer):
         return 1 / (tf.pow((1 + a * tf.exp(-c * (inputs - b))), 1 / a))
 
 
+def remove_final_activation(model):
+    import tensorflow as tf
+    import keras
+
+    """
+        based on the underrated answer of @carlos-bermudez in: 
+        https://stackoverflow.com/questions/45492318/keras-retrieve-value-of-node-before-activation-function
+    """
+
+    final_layer_name = model.layers[-1].name
+
+    def f(layer):
+        config = layer.get_config()
+        # if not isinstance(layer, Activation) and layer.name in model.output_names:
+        if not isinstance(layer, keras.layers.Activation) and layer.name in [final_layer_name]:
+            print(f"removing activation in {layer}")
+            config.pop("activation", None)
+        layer_copy = layer.__class__.from_config(config)
+        return layer_copy
+
+    copy_model = tf.keras.models.clone_model(model, clone_function=f)
+    copy_model.build(model.input_shape)
+    copy_model.set_weights(model.get_weights())
+    return copy_model
+
+
 def model_modifier_logistic_activation(model, **kwargs):
-    custom_act_model = tf_utils.remove_final_activation(model)
+    custom_act_model = remove_final_activation(model)
     custom_act_model.add(LogisticActivationLayer("logistic_activation"))
     return custom_act_model
 
