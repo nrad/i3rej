@@ -792,6 +792,7 @@ def make_tri_plot(
     return fig, axs
 
 def plot_speedup(plotter, 
+                df=None,
                 #  label='CscdBDT',
                  pred='pred',
                  truth_label='CscdBDT',
@@ -802,11 +803,15 @@ def plot_speedup(plotter,
                  nom='n_eff_passed',
                  denom='n_photons_simulated',
                  ylim=(0,2.2),
-                 selection_dict={"100TeV":"shower_mu1_energy>100_000", "10TeV":"shower_mu1_energy>10_000"},
+                 selection_dict={},
                  model_name=None,
+                 save_results=False,
                  ):
 
-    df = plotter.data.df_test
+    if df is None:
+        df = plotter.data.df_test
+    else:
+        df = df
     sdfs = {}
     model_name = model_name if model_name else plotter.config.info.model_name
     selection_dict.update({model_name:None})
@@ -837,6 +842,12 @@ def plot_speedup(plotter,
                                 x="min_pred", 
                                 sdfs=sdfs)
     tri_plot[-1][-1].set_ylim(*ylim)
-    plotter.save_fig(tri_plot[0],  f"{plot_name}")
+    if plot_name:
+        plotter.save_fig(tri_plot[0],  f"{plot_name}")
+        if save_results:
+            import pickle
+            result_path = plotter.resolve_plot_path(f'{plot_name}.pkl')
+            with open(result_path, 'wb') as f:
+                pickle.dump(sdfs, f)
     return tri_plot, sdfs
   
