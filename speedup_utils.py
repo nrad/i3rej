@@ -806,12 +806,17 @@ def plot_speedup(plotter,
                  selection_dict={},
                  model_name=None,
                  save_results=False,
+                 train=False,
                  ):
 
     if df is None:
-        df = plotter.data.df_test
+        if train:
+            df = plotter.data.df_train
+        else:
+            df = plotter.data.df_test
     else:
         df = df
+
     sdfs = {}
     model_name = model_name if model_name else plotter.config.info.model_name
     selection_dict.update({model_name:None})
@@ -843,7 +848,7 @@ def plot_speedup(plotter,
                                 sdfs=sdfs)
     tri_plot[-1][-1].set_ylim(*ylim)
     if plot_name:
-        plotter.save_fig(tri_plot[0],  f"{plot_name}")
+        plotter.save_fig(tri_plot[0],  f"{plot_name}"+ ("_train" if train else ""))
         if save_results:
             import pickle
             result_path = plotter.resolve_plot_path(f'{plot_name}.pkl')
