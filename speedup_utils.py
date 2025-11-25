@@ -754,7 +754,7 @@ def make_tri_plot(
 ):
     model_names = list(sdfs)
     fig, axs = plt.subplots(
-        ncols=3, nrows=1, squeeze=True, figsize=(15, 5), constrained_layout=True
+        ncols=3, nrows=1, squeeze=True, figsize=(15, 5), constrained_layout=True,
     )
     fig.tight_layout(pad=3)
     axs = axs.flatten()
@@ -802,7 +802,7 @@ def plot_speedup(plotter,
                  plot_name="speedup",
                  nom='n_eff_passed',
                  denom='n_photons_simulated',
-                 ylim=(0,2.2),
+                 ylim=(0, 3.0),
                  selection_dict={},
                  model_name=None,
                  save_results=False,

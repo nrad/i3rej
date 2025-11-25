@@ -6,7 +6,7 @@ defaults:
   - default_features
 
 data:
-  file_reader: tfxkit.common.base_utils.read_hdfs
+  file_reader: tfxkit.common.base_utils.default_reader
   train_files: /Users/nrad/Work/data/hdf/Cscd_v0.0.12/20904/test_train_nocombineskimmed_nphotons/train_RUS_to1to5.hdf5
   test_files: /Users/nrad/Work/data/hdf/Cscd_v0.0.12/20904/test_train_nocombineskimmed_nphotons/test_small.hdf5
   weight_column_train: sample_weight_balanced
@@ -21,13 +21,14 @@ model:
     function: tfxkit.common.tf_utils.define_mlp
     overwrite: false
     reload_model: true
+    
 optimizer:
     function: keras.optimizers.AdamW
     loss: binary_crossentropy
     metrics:
     - accuracy
     parameters:
-        learning_rate: 0.001
+        learning_rate: 0.0001
         weight_decay: 0.0001    
         epsilon: 1e-7
         # amsgrad: false
