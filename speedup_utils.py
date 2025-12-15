@@ -13,6 +13,9 @@ from scipy.signal import savgol_filter
 import scipy
 from copy import deepcopy
 import textwrap
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def make_labels(label_name):
@@ -153,11 +156,11 @@ def calc_livetime(df, query_or_mask=None, weight_col="weights", return_dict=Fals
 
 
 def get_weight_from_pred(pred, eps=1e-11):
-    weights = 1.0 / (pred + eps)
+    # weights = 1.0 / (pred + eps)
+    weights = np.where(pred>0, 1.0/pred, 1.0/eps)
     size = len(pred)
     rand = np.random.rand(size)
     mask = rand < pred
-    # print(weights.sum(), factor)
     return weights, mask
 
 
@@ -281,22 +284,20 @@ def get_pred_summary(
 
 
 def calc_expected_n_eff(w, p=None):
-    # w = combine_weight_columns(df, weights)
-    # prob = prob if prob is not None else np.ones(size=len(w))
-    # w.sum()**2/(w**2).sum()
     if p is None:
-        expected_n_eff = (len(w) * len(w)) / (w).sum()
+        expected_n_eff = w.sum()**2 / (w**2).sum()
     else:
-        expected_n_eff = (p * w).sum() ** 2 / (p * (w) ** 2).sum()
+        expected_n_eff = (p * w).sum() ** 2 / (p * (w**2)).sum()
     # print(w.sum(), len(w), expected_n_eff)
     return expected_n_eff
 
 
+
 def calc_expected_livetime(w, p=None):
     if p is None:
-        expected_lt = (len(w)) / (w).sum()
+        expected_lt = w.sum() / (w**2).sum()
     else:
-        expected_lt = (p * w).sum() / (p * (w) ** 2).sum()
+        expected_lt = (p * w).sum() / (p * (w**2)).sum()
     return expected_lt
 
 
@@ -792,7 +793,7 @@ def make_tri_plot(
     return fig, axs
 
 def plot_speedup(plotter, 
-                df=None,
+                dfs=None,
                 #  label='CscdBDT',
                  pred='pred',
                  truth_label='CscdBDT',
@@ -803,41 +804,52 @@ def plot_speedup(plotter,
                  nom='n_eff_passed',
                  denom='n_photons_simulated',
                  ylim=(0, 3.0),
-                 selection_dict={},
+                 selection_dict=None,
                  model_name=None,
                  save_results=False,
-                 train=False,
+                 test_train='test'
                  ):
 
-    if df is None:
-        if train:
-            df = plotter.data.df_train
+    if dfs is None:
+        if test_train == 'test':
+            dfs = {'': plotter.data.df_test}
+        elif test_train == 'train':
+            dfs = {' (train)': plotter.data.df_train}
+        elif test_train == 'both':
+            dfs = {' (train)': plotter.data.df_train, ' (test)': plotter.data.df_test}
         else:
-            df = plotter.data.df_test
+            raise ValueError(f"Invalid test_train: {test_train}")
+    elif not isinstance(dfs, dict): # assume it's a single DF
+        dfs = {'': dfs}
     else:
-        df = df
+        dfs = {f' ({k})': v for k, v in dfs.items()}
 
     sdfs = {}
     model_name = model_name if model_name else plotter.config.info.model_name
+    selection_dict = deepcopy(selection_dict) if selection_dict is not None else {}
     selection_dict.update({model_name:None})
-    if selection_dict:
-        for label, selection in selection_dict.items():
-            if selection is not None:
-                df_ = df.query(selection)
-            else:
-                df_ = df
-            sdfs[label] = get_pred_speedup(df_, 
-                                           pred=pred, 
-                                           passed=truth_label, 
-                                           col_n_photons=n_photons, 
-                                           col_flux_weights=flux_weights, 
-                                           col_sel_weights=selection_weights)
+    logger.info(f"selection_dict: {selection_dict}")
+
+    for df_tag, df in dfs.items():
+        if selection_dict:
+            for label, selection in selection_dict.items():
+                if selection is not None:
+                    df_ = df.query(selection)
+                else:
+                    df_ = df
+                sdfs[label+('_'+df_tag if df_tag else '')] = get_pred_speedup(df_, 
+                                                pred=pred, 
+                                                passed=truth_label, 
+                                                col_n_photons=n_photons, 
+                                                col_flux_weights=flux_weights, 
+                                                col_sel_weights=selection_weights)
+
     add_uniform_preds(df, truth_label=truth_label)
 
     pseudo_preds = ['uniform_pred',]
-    for pred in pseudo_preds:
-        sdfs[pred] = get_pred_speedup(df, 
-                                      pred=pred, 
+    for pseudo_pred in pseudo_preds:
+        sdfs[pseudo_pred] = get_pred_speedup(df, 
+                                      pred=pseudo_pred, 
                                       passed=truth_label, 
                                       col_n_photons=n_photons, 
                                       col_flux_weights=flux_weights, 
@@ -847,12 +859,21 @@ def plot_speedup(plotter,
                                 x="min_pred", 
                                 sdfs=sdfs)
     tri_plot[-1][-1].set_ylim(*ylim)
+    max_speedups = dict([ (k,np.max(v['speed_normed'])) for k,v in sdfs.items()])
+    longest_model_name = max(30, max(len(k) for k in max_speedups.keys()) + 5)
+    max_speedups_str = "\n \t ".join([f"{k:<{longest_model_name}} {v:.2f}" for k,v in max_speedups.items()])
+    logger.info("Speedup Summary: \n \t " + 
+                    f"\n \t {'model_name':<{longest_model_name}} {'speedup':<20} \n \t " + 
+                    "-"*(longest_model_name + 20) + " \n \t " + max_speedups_str)
+
     if plot_name:
-        plotter.save_fig(tri_plot[0],  f"{plot_name}"+ ("_train" if train else ""))
+        test_train_tag = { 'train': '_train', 'test': '', 'both': '_train_test' }[test_train]
+        plotter.save_fig(tri_plot[0],  f"{plot_name}"+ test_train_tag)
         if save_results:
             import pickle
             result_path = plotter.resolve_plot_path(f'{plot_name}.pkl')
             with open(result_path, 'wb') as f:
                 pickle.dump(sdfs, f)
+
     return tri_plot, sdfs
   
