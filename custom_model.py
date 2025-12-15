@@ -18,7 +18,20 @@ DEFAULT_MUON_FEATURES = [
     "log_energy",
 ]
 
+DEFAULT_ELOSS_FEATURES = [ 
+ 'type',
+ 'pos_x',
+ 'pos_y',
+ 'pos_z',
+ 'pos_magnitude',
+ 'distance',
+ 'log_energy'
+ ]
+
+
 DEFAULT_N_MUONS = 10
+
+# DEFAULT_MUON_FEATURES = ['log_energy', 'pos_x', 'pos_y', 'pos_z', 'distance']
 
 
 def df_to_muon_array(
@@ -171,7 +184,7 @@ def build_event_branch(
 
     event_input = keras.Input(shape=(event_feat_dim,), name="event_input")
     event_mlp = tf_utils.define_mlp(
-        n_features=event_feat_dim,
+        features=event_feat_dim,
         layers_list=layers_list,
         hidden_activation=hidden_activation,
         n_labels=n_final_units,
@@ -320,14 +333,14 @@ def build_combined_showermu_model(
 #     return X, y, sample_weight
 
 
-def xy_maker_wrapper(muon_prefix="mu"):
+def xy_maker_wrapper(muon_prefix="mu", muon_features=DEFAULT_MUON_FEATURES):
     def xy_maker(
         df, features, labels, weight=None
     ):
         muon_pattern = f"{muon_prefix}"+r"\d+_*"
         event_features = [k for k in features if not re.findall(muon_pattern, k)]
         event_feats = df[event_features]
-        muon_feats = df_to_muon_array(df, epsilon_std=0, muon_prefix=muon_prefix)
+        muon_feats = df_to_muon_array(df, epsilon_std=0, muon_prefix=muon_prefix, muon_features=muon_features)
 
         sample_weight = tf_utils.get_weight_column(df, weight)
         X = (event_feats, muon_feats)
@@ -338,6 +351,7 @@ def xy_maker_wrapper(muon_prefix="mu"):
 
 xy_maker_muon_embedding = xy_maker_wrapper(muon_prefix="mu")
 xy_maker_shower_muon_embedding = xy_maker_wrapper(muon_prefix="shower_mu")
+xy_maker_eloss_embedding = xy_maker_wrapper(muon_prefix="eloss", muon_features=DEFAULT_ELOSS_FEATURES)
 
 def xy_maker_showermu_icemu_embedding(
     df, features, labels, weight=None
@@ -357,7 +371,7 @@ def xy_maker_showermu_icemu_embedding(
 
 
 def define_muemb_model(
-    n_features,
+    # n_features,
     features,
     n_labels=1,
     event_branch_layers=[64],
@@ -374,11 +388,13 @@ def define_muemb_model(
     muon_prefix="mu",
 ):
     muon_pattern = f"{muon_prefix}"+r"\d+_*"
-    print(f"{muon_pattern = }")
-    print(f"{features = }")
-    print([ (k, re.findall(muon_pattern, k)) for k in features])
+    # print(f"{muon_pattern = }")
+    # print(f"{features = }")
+    # print([ (k, re.findall(muon_pattern, k)) for k in features])
     event_features = [k for k in features if not re.findall(muon_pattern, k)]
     n_event_features = len(event_features)
+    print(f"{n_event_features=}, \n{event_features=} \n{features=}")
+  
     muon_features = [k for k in features if re.findall(muon_pattern, k)]
     print(f"{n_event_features=}, \n{muon_features=} \n{features=}")
     event_branch_kwargs = dict(
@@ -411,7 +427,7 @@ def define_muemb_model(
 
 
 def define_muemb_showermuemb_model(
-    n_features,
+    #n_features,
     features,
     n_labels=1,
     event_branch_layers=[64],
@@ -478,69 +494,67 @@ def define_muemb_showermuemb_model(
 
     return model
 
-def define_custom_embedding_model(
-    n_features,
-    features,
-    n_labels=1,
-    embedded_properties=[{"pattern": r"mu\d+_*", "dim": 16, "layers": [64], "dropout": 0.3, "kernel_regularizer": 1e-4, "aggregation_method": "simple", "batch_size": None}, 
-                         {"pattern": r"shower_mu\d+_*", "dim": 16, "layers": [64], "dropout": 0.3, "kernel_regularizer": 1e-4, "aggregation_method": "simple", "batch_size": None}],
-    combination_layers=[64],
-    hidden_activation="relu",
-    dropout=0.3,
-    dropout_event=None,
-    kernel_regularizer=1e-4,
-    aggregation_method="simple",
-    batch_size=None,
-):
-    muon_pattern = f"mu"+r"\d+_*"
-    shower_muon_pattern = f"shower_mu"+r"\d+_*"
-    event_features = [k for k in features if not re.findall(muon_pattern, k)]
-    n_event_features = len(event_features)
-    # muon_features = [k for k in features if re.findall(muon_pattern, k)]
-    # shower_muon_features = [k for k in features if re.findall(shower_muon_pattern, k)]
+# def define_custom_embedding_model(
+#     # n_features,
+#     features,
+#     n_labels=1,
+#     combination_layers=[64],
+#     hidden_activation="relu",
+#     dropout=0.3,
+#     dropout_event=None,
+#     kernel_regularizer=1e-4,
+#     aggregation_method="simple",
+#     batch_size=None,
+# ):
+#     muon_pattern = f"mu"+r"\d+_*"
+#     shower_muon_pattern = f"shower_mu"+r"\d+_*"
+#     event_features = [k for k in features if not re.findall(muon_pattern, k)]
+#     n_event_features = len(event_features)
+#     # muon_features = [k for k in features if re.findall(muon_pattern, k)]
+#     # shower_muon_features = [k for k in features if re.findall(shower_muon_pattern, k)]
 
-    # print(f"{n_event_features=}, \n{muon_features=} \n{features=}")
+#     # print(f"{n_event_features=}, \n{muon_features=} \n{features=}")
 
-    event_branch_kwargs = dict(
-        layers_list=event_branch_layers,
-        dropout=dropout_event if dropout_event is not None else dropout,
-        kernel_regularizer=kernel_regularizer,
-    )
+#     event_branch_kwargs = dict(
+#         layers_list=event_branch_layers,
+#         dropout=dropout_event if dropout_event is not None else dropout,
+#         kernel_regularizer=kernel_regularizer,
+#     )
 
-    muon_branch_kwargs = dict(
-        layers_list=muon_branch_layers,
-        dropout=dropout_muon if dropout_muon is not None else dropout,
-        kernel_regularizer=kernel_regularizer,
-        aggregation_method=aggregation_method,
-        batch_size=batch_size,
-    )
+#     muon_branch_kwargs = dict(
+#         layers_list=muon_branch_layers,
+#         dropout=dropout_muon if dropout_muon is not None else dropout,
+#         kernel_regularizer=kernel_regularizer,
+#         aggregation_method=aggregation_method,
+#         batch_size=batch_size,
+#     )
 
-    shower_muon_branch_kwargs = dict(
-        layers_list=shower_muon_branch_layers,
-        dropout=dropout_muon if dropout_muon is not None else dropout,
-        kernel_regularizer=kernel_regularizer,
-        aggregation_method=aggregation_method,
-        batch_size=batch_size,
-    )
+#     shower_muon_branch_kwargs = dict(
+#         layers_list=shower_muon_branch_layers,
+#         dropout=dropout_muon if dropout_muon is not None else dropout,
+#         kernel_regularizer=kernel_regularizer,
+#         aggregation_method=aggregation_method,
+#         batch_size=batch_size,
+#     )
 
 
-    print(muon_branch_kwargs)
-    event_branch, muon_branch, shower_muon_branch, model = build_combined_showermu_model(
-        event_feat_dim=n_event_features,
-        muon_embedding_dim=muon_embedding_dim,
-        shower_muon_embedding_dim=shower_muon_embedding_dim,
-        layers_list=combination_layers,
-        event_branch_kwargs=event_branch_kwargs,
-        muon_branch_kwargs=muon_branch_kwargs,
-        shower_muon_branch_kwargs=shower_muon_branch_kwargs,
-        dropout=dropout,
-        batch_size=batch_size,
-    )
-    model.event_branch = event_branch
-    model.muon_branch = muon_branch
-    model.shower_muon_branch = shower_muon_branch
+#     print(muon_branch_kwargs)
+#     event_branch, muon_branch, shower_muon_branch, model = build_combined_showermu_model(
+#         event_feat_dim=n_event_features,
+#         muon_embedding_dim=muon_embedding_dim,
+#         shower_muon_embedding_dim=shower_muon_embedding_dim,
+#         layers_list=combination_layers,
+#         event_branch_kwargs=event_branch_kwargs,
+#         muon_branch_kwargs=muon_branch_kwargs,
+#         shower_muon_branch_kwargs=shower_muon_branch_kwargs,
+#         dropout=dropout,
+#         batch_size=batch_size,
+#     )
+#     model.event_branch = event_branch
+#     model.muon_branch = muon_branch
+#     model.shower_muon_branch = shower_muon_branch
 
-    return model
+#     return model
 
 
 class NeuralNetworkAggregation(keras.layers.Layer):
