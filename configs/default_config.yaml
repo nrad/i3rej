@@ -1,0 +1,90 @@
+info:
+  model_name: model
+  save_dir: save_dir
+
+defaults:
+  - default_features
+
+data:
+  file_reader: tfxkit.common.base_utils.default_reader
+  train_files: /Users/nrad/Work/data/hdf/Cscd_v0.0.12/20904/test_train_nocombineskimmed_nphotons/train_RUS_to1to5.hdf5
+  test_files: /Users/nrad/Work/data/hdf/Cscd_v0.0.12/20904/test_train_nocombineskimmed_nphotons/test_small.hdf5
+  weight_column_train: sample_weight_balanced
+  xy_maker: custom_model.xy_maker_muon_embedding
+
+evaluation:
+    args: null
+    variable: pred
+logging:
+    level: DEBUG
+model:
+    function: tfxkit.common.tf_utils.define_mlp
+    overwrite: false
+    reload_model: true
+    random_seed: 999
+    
+optimizer:
+    function: keras.optimizers.AdamW
+    loss: binary_crossentropy
+    metrics:
+    - accuracy
+    parameters:
+        learning_rate: 0.0001
+        weight_decay: 0.0001    
+        epsilon: 1e-7
+        # amsgrad: false
+        beta_1: 0.9
+        beta_2: 0.999
+
+
+plotter:
+    functions:
+        plot_history:
+            function: plot_history
+        plot_predictions:
+            function: plot_predictions
+            parameters:
+                plot_name: Preds
+                weight_column_train: null
+                # - 0.2
+                weight_column: null
+                x_label: My Predictions
+                comparison: 'ratio'
+    # plots_path: plots
+    sequence:
+    - plot_history
+    - plot_predictions
+    - plot_roc
+
+training:
+    batch_size: 32
+    class_weight: null
+    epochs: 10
+    initial_epoch: 0
+    shuffle: true
+    steps_per_epoch: null
+    validation_batch_size: null
+    validation_data: null
+    validation_freq: 1
+    validation_split: 0.2
+    validation_steps: null
+tuner:
+    functions:
+        generic_tuner:
+            function: tfxkit.core.tuner.generic_tuner
+    search:
+        batch_size: 86000
+        validation_split: 0.2
+    sequence:
+    - generic_tuner
+    tuner:
+        function: keras_tuner.BayesianOptimization
+        parameters:
+            alpha: 0.0001
+            beta: 2.6
+            # directory: tuner_dir
+            executions_per_trial: 2
+            max_trials: 100
+            objective: val_loss
+            overwrite: false
+            project_name: HPTunning
