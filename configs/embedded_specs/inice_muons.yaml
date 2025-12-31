@@ -1,0 +1,20 @@
+- name: inice_muons
+  feature_patterns:
+    - mu%s_pos_x
+    - mu%s_pos_y
+    - mu%s_pos_z
+    - mu%s_dir_x
+    - mu%s_dir_y
+    - mu%s_dir_z
+    - mu%s_radius
+    - mu%s_log_energy
+  n_objects: 10
+  embedding_dim: 2
+  layers_list: [64, 64, 64, 64]
+  hidden_activation: relu
+  final_activation: sigmoid
+  dropout: 0.1
+  kernel_regularizer: 1e-4
+  aggregation_method: sum
+  pad_and_mask_empty_objects: false
+  epsilon_std: 0

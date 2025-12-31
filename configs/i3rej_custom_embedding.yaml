@@ -1,0 +1,126 @@
+docs: |
+  This is the configuration for a custom embedding model.
+
+defaults:
+  - default_config  
+  - _self_
+
+info:
+  model_name: "ShowerMuEmb"
+  save_dir: "/cephfs/users/nrad/lustre/www/plots/tfxkit/v0.0.8/Cscd_v0.0.16_elosses/20904/CustomEmbedding_Elosses_v0/save_dir/"
+
+
+
+optimizer:
+    function: keras.optimizers.AdamW
+    loss: binary_crossentropy
+    metrics:
+    - accuracy
+    parameters:
+        learning_rate: 0.0001
+        weight_decay: 0.0001    
+        epsilon: 1e-7
+        beta_1: 0.8
+        beta_2: 0.98
+
+
+model:
+  function: custom_embedding_model.define_embedded_model
+  overwrite: true
+  reload_model: true
+
+  parameters:
+    # event_feat_dim: 32            # number of event-level features
+    event_branch_layers: [64,]
+    event_hidden_activation: relu
+    event_embedding_dim: 64
+    event_dropout: 0.1
+    combination_layers: [64,]
+    combined_activation: relu
+    final_activation: sigmoid
+    event_final_activation: sigmoid # CHANGE TO TANH
+    dropout: 0.1
+    kernel_regularizer: 1e-4
+    name: EmbeddedModel_v1
+    embedded_specs:
+      - name: shower_muons
+        feature_patterns:
+          - shower_mu%s_pos_x
+          - shower_mu%s_pos_y
+          - shower_mu%s_pos_z
+          - shower_mu%s_dir_x
+          - shower_mu%s_dir_y
+          - shower_mu%s_dir_z
+          - shower_mu%s_radius
+          - shower_mu%s_log_energy
+        n_objects: 10
+        embedding_dim: 2
+        layers_list: [64, 64, 64, 64]
+        hidden_activation: relu
+        final_activation: sigmoid
+        dropout: 0.1
+        kernel_regularizer: 1e-4
+        aggregation_method: sum
+        pad_and_mask_empty_objects: false
+        epsilon_std: 0
+
+
+training:
+  epochs: 10
+  batch_size: 32000
+  validation_split: 0.2
+
+
+
+plotter:
+  # plots_path: tfxkit_results/plots
+  weight_column: sel_flux_weights
+  weight_column_train: 
+    - sel_flux_weights
+    - sample_weight
+    # - 0.0225
+
+  functions:
+    plot_speedup:
+      function: speedup_utils.plot_speedup
+      parameters:
+        save_results: true
+        test_train: 'test'
+    plot_speedup_train:
+      function: speedup_utils.plot_speedup
+      parameters:
+        # save_results: true
+        test_train: 'train'
+
+  sequence:
+    - plot_speedup
+    - plot_speedup_train
+    - plot_history
+    - plot_predictions
+    - plot_roc
+
+
+    
+data:
+  labels: ["CscdBDT"]
+  # test_files: "/Users/nrad/Work/data/hdf/Cscd_v0.0.12/20904/test_train_nocombineskimmed_nphotons/test.hdf5"
+  test_files: "/lustre/fs23/group/icecube/nrad/data/hdf/Cscd_v0.0.16_elosses/20904/test_train_nocombineskimmed_2_nphotons/test.parquet"
+  # train_files: "/lustre/fs23/group/icecube/nrad/data/hdf/Cscd_v0.0.16_elosses/20904/test_train_nocombineskimmed_2_nphotons/train_RUS_CscdBDT_to1to10.parquet"
+  train_files: "/lustre/fs23/group/icecube/nrad/data/hdf/Cscd_v0.0.16_elosses/20904/test_train_nocombineskimmed_2_nphotons/train_RUS_CscdBDT_to1to10.parquet"
+  xy_maker: 
+    function: custom_embedding_model.xy_maker_embedded
+
+  features:
+    - log_primary_pos_z
+    - log_rho
+    - log_primary_length
+    - log_energy
+    - interaction_height
+    - cos_zenith
+    - pdg_map
+    - log_energy_per_nucleon
+    - log_shower_mu_multiplicity
+    - shower_mu_bundle_log_energy
+    - shower_mu_singleness
+    - shower_mu_bundle_energy_fraction
+    - shower_mu_leading_energy_fraction
